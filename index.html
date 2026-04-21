@@ -215,6 +215,56 @@
   }
   .metric-val { font-size: 24px; color: var(--text); letter-spacing: -0.02em; }
   .metric-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; font-style: italic; }
+  /* Hero metrics — prominent callouts for % utilized & Spare Capacity */
+  .metrics-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .metric-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .metric-hero .metric-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    margin-bottom: 10px;
+  }
+  .metric-hero-val {
+    font-size: 52px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .metric-hero-val.green  { color: var(--green); }
+  .metric-hero-val.amber  { color: var(--amber); }
+  .metric-hero-val.coral  { color: var(--coral); }
+  .metric-hero-badge .cap-badge {
+    font-size: 22px;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .metric-hero-sub {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-top: 10px;
+    font-style: italic;
+  }
+  .metrics-secondary-heading {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-top: 4px;
+    margin-bottom: -4px;
+  }
+  .metrics-secondary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .metrics-secondary .metric-val { font-size: 20px; }
   .cap-badge {
     display: inline-block;
     padding: 3px 10px;
@@ -411,6 +461,9 @@
     .controls { position: static; }
     .charts-grid, .data-grid, .data-company-row { grid-template-columns: 1fr; }
     .metrics { grid-template-columns: 1fr 1fr; }
+    .metrics-hero { grid-template-columns: 1fr; }
+    .metrics-secondary { grid-template-columns: 1fr; }
+    .metric-hero-val { font-size: 42px; }
     .col-mapper-grid { grid-template-columns: 1fr; }
   }
 </style>
@@ -444,7 +497,7 @@
     <div class="ctrl-group">
       <div class="ctrl-label" style="margin-bottom:2px">
         How many jobs can this supplier work on simultaneously?
-        <span class="ctrl-val" id="lines-out">1</span>
+        <span class="ctrl-val" id="lines-out" style="border:1px solid var(--border-strong); border-radius:4px; padding:2px 8px; background:var(--surface2)">1</span>
       </div>
       <div class="lines-labels">
         <span class="lines-label" style="left:0%">Small</span>
@@ -458,7 +511,8 @@
         <span class="lines-tick" style="left:75%"></span>
         <span class="lines-tick" style="left:100%"></span>
       </div>
-      <input type="range" min="1" max="30" step="1" value="1" id="lines" oninput="updateExplore()">
+      <input type="range" min="1" max="50" step="1" value="1" id="lines" oninput="updateExplore()">
+      <div class="lines-nums"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
     </div>
     <hr class="ctrl-divider">
     <div class="ctrl-heading">Variability &amp; workload</div>
@@ -511,7 +565,9 @@
       <span class="sample-label" id="sample-label">Sample #1 — 800 synthetic jobs</span>
       <button class="sample-btn" onclick="newSample()">⟳ New sample</button>
     </div>
-    <div class="metrics" id="explore-metrics"></div>
+    <div class="metrics-hero" id="explore-hero-metrics"></div>
+    <div class="metrics-secondary-heading">Predicted wait times</div>
+    <div class="metrics-secondary" id="explore-metrics"></div>
     <div class="tab-bar">
       <button class="tab active" onclick="setExploreView('dashboard', this)">Overview</button>
       <button class="tab"        onclick="setExploreView('sensitivity', this)">What if?</button>
@@ -635,7 +691,7 @@
   </div>
   <div class="data-company-row">
     <div class="data-box">
-      <div class="data-box-title">Simultaneous Jobs &amp; Company labels</div>
+      <div class="data-box-title">Simultaneous jobs &amp; Company labels</div>
       <div class="data-box-desc">Set number of simultaneous jobs, then optionally enter 1 (Company) or 0 (other) per job.</div>
       <div style="margin-bottom:8px">
         <div class="ctrl-label" style="margin-bottom:2px">
@@ -934,6 +990,19 @@ function updateExplore() {
   const spareSub = sj > 0 ? `≈${Math.round(sj)} jobs before 85%` : 'at or above 85% — no headroom';
   document.getElementById('sample-label').textContent = `Sample #${sampleNumber} — 800 synthetic jobs`;
 
+  document.getElementById('explore-hero-metrics').innerHTML = `
+    <div class="metric-hero">
+      <div class="metric-label">% utilized</div>
+      <div class="metric-hero-val ${uClass}">${uPct}%</div>
+      <div class="metric-hero-sub">${sizeLabel(c)} supplier · ${c} line${c>1?'s':''}${uWarn}</div>
+    </div>
+    <div class="metric-hero">
+      <div class="metric-label">Spare capacity</div>
+      <div class="metric-hero-badge"><span class="cap-badge ${rt.cls}">${rt.label}</span></div>
+      <div class="metric-hero-sub">${spareSub}</div>
+    </div>
+  `;
+
   document.getElementById('explore-metrics').innerHTML = `
     <div class="metric">
       <div class="metric-label">Formula estimate</div>
@@ -949,11 +1018,6 @@ function updateExplore() {
       <div class="metric-label">The Company wait</div>
       <div class="metric-val">${sim.companyAvgWait.toFixed(1)}h</div>
       <div class="metric-sub">${mix}% of arrivals</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Spare capacity</div>
-      <div class="metric-val"><span class="cap-badge ${rt.cls}">${rt.label}</span></div>
-      <div class="metric-sub">${spareSub}</div>
     </div>
   `;
 
