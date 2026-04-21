@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplier Wait Time Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.10);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text-2: #6b6a65;
+    --text-3: #9e9d97;
+    --blue: #185fa5;
+    --green: #0f6e56;
+    --amber: #ba7517;
+    --coral: #993c1d;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161614;
+      --surface: #1e1e1b;
+      --surface2: #252521;
+      --border: rgba(255,255,255,0.09);
+      --border-strong: rgba(255,255,255,0.16);
+      --text: #eeede8;
+      --text-2: #9e9d97;
+      --text-3: #6b6a65;
+      --blue: #378add;
+      --green: #1d9e75;
+      --amber: #ef9f27;
+      --coral: #d85a30;
+    }
+  }
+  body {
+    font-family: 'Georgia', serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1.5rem 4rem;
+    line-height: 1.6;
+  }
+  .page-header {
+    max-width: 960px;
+    margin: 0 auto 1.25rem;
+    border-bottom: 1px solid var(--border-strong);
+    padding-bottom: 1.25rem;
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .page-header p {
+    font-size: 14px;
+    color: var(--text-2);
+    font-style: italic;
+  }
+  .how-it-works { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .how-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .how-pill strong { color: var(--blue); font-weight: 500; }
+  /* Mode toggle — the big separation */
+  .mode-toggle {
+    max-width: 960px;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 4px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Georgia', serif;
+    font-size: 14px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mode-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .mode-btn-sub { font-size: 11px; color: var(--text-3); font-style: italic; display: block; margin-top: 2px; }
+  .mode-btn.active .mode-btn-sub { color: var(--text-2); }
+  .app {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 270px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .analyze-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    position: sticky;
+    top: 1.5rem;
+  }
+  .ctrl-heading {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 1.25rem;
+  }
+  .ctrl-divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0 0.85rem; }
+  .ctrl-group { margin-bottom: 1.1rem; }
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 5px;
+  }
+  .ctrl-val { font-size: 13px; color: var(--text); font-weight: 500; }
+  .ctrl-hint { font-size: 11px; color: var(--text-3); font-style: italic; margin-top: 3px; }
+  .derived-util {
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .derived-util.green  { color: var(--green); }
+  .derived-util.amber  { color: var(--amber); }
+  .derived-util.coral  { color: var(--coral); }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--blue);
+    cursor: pointer;
+    border: 2px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--blue);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--blue);
+    cursor: pointer;
+    border: 2px solid var(--surface);
+  }
+  .mix-pills { display: flex; gap: 6px; margin-top: 7px; }
+  .pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+  .pill-company { background: #dceefb; color: #0c447c; }
+  .pill-other   { background: #e8e7e0; color: #444441; }
+  @media (prefers-color-scheme: dark) {
+    .pill-company { background: #0c447c; color: #b5d4f4; }
+    .pill-other   { background: #2c2c2a; color: #b4b2a9; }
+  }
+  .lines-labels { position: relative; height: 16px; }
+  .lines-label { position: absolute; transform: translateX(-50%); font-size: 10px; color: var(--text-3); font-style: italic; }
+  .lines-ticks { position: relative; height: 8px; }
+  .lines-tick { position: absolute; top: 4px; width: 1px; height: 4px; background: var(--border-strong); transform: translateX(-50%); }
+  .lines-nums { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); margin-top: 2px; }
+  .right { display: flex; flex-direction: column; gap: 1rem; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  .metric-val { font-size: 24px; color: var(--text); letter-spacing: -0.02em; }
+  .metric-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; font-style: italic; }
+  .cap-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .cap-badge.available   { background: #d4edda; color: #155724; }
+  .cap-badge.tightening  { background: #fff3cd; color: #856404; }
+  .cap-badge.constrained { background: #f8d7da; color: #721c24; }
+  @media (prefers-color-scheme: dark) {
+    .cap-badge.available   { background: #0d3320; color: #8fd8a8; }
+    .cap-badge.tightening  { background: #3d2e00; color: #ffd666; }
+    .cap-badge.constrained { background: #3d0f13; color: #f5a0a8; }
+  }
+  .tab-bar {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1;
+    padding: 7px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    font-family: 'Georgia', serif;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .tab.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.1rem 0.9rem;
+  }
+  .chart-title { font-size: 13px; color: var(--text); margin-bottom: 2px; }
+  .chart-desc  { font-size: 11px; color: var(--text-3); font-style: italic; margin-bottom: 10px; }
+  .chart-wrap  { position: relative; width: 100%; height: 190px; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 11px; color: var(--text-2); }
+  .chart-legend span { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+  .insight {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-2);
+    font-style: italic;
+  }
+  .sample-bar { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+  .sample-label { font-size: 12px; color: var(--text-3); font-style: italic; }
+  .sample-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-2);
+    font-family: 'Georgia', serif;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .sample-btn:hover { border-color: var(--blue); color: var(--text); }
+  /* Analyze mode specifics */
+  .csv-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  .csv-zone.drag-over { border-color: var(--blue); background: var(--surface2); }
+  .csv-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .csv-icon { width: 36px; height: 36px; margin: 0 auto 10px; background: var(--surface2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .csv-zone-title { font-size: 14px; color: var(--text); margin-bottom: 4px; }
+  .csv-zone-sub   { font-size: 12px; color: var(--text-3); font-style: italic; }
+  .csv-zone-link  { color: var(--blue); text-decoration: underline; cursor: pointer; }
+  .csv-success { display: none; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 12px; color: var(--text-2); }
+  .csv-success.visible { display: block; }
+  .csv-filename { font-weight: 500; color: var(--text); }
+  .col-mapper { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+  .col-mapper.visible { display: block; }
+  .col-mapper-title { font-size: 13px; color: var(--text); margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .col-mapper-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 0.75rem; }
+  .col-map-group label { display: block; font-size: 11px; color: var(--text-3); margin-bottom: 4px; font-style: italic; }
+  .col-map-group select {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text);
+    font-family: 'Georgia', serif;
+    outline: none;
+    cursor: pointer;
+  }
+  .col-map-group select:focus { border-color: var(--blue); }
+  .csv-preview { font-size: 11px; color: var(--text-3); font-style: italic; margin-top: 4px; }
+  .load-csv-btn {
+    width: 100%;
+    padding: 9px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: 'Georgia', serif;
+    cursor: pointer;
+    margin-top: 0.5rem;
+  }
+  .load-csv-btn:hover { opacity: 0.88; }
+  .divider-or { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-3); }
+  .divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .data-intro {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-2);
+    font-style: italic;
+  }
+  .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .data-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.1rem; }
+  .data-box-title { font-size: 13px; color: var(--text); margin-bottom: 3px; }
+  .data-box-desc { font-size: 11px; color: var(--text-3); font-style: italic; margin-bottom: 8px; }
+  textarea {
+    width: 100%;
+    height: 130px;
+    font-family: 'Georgia', serif;
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+    line-height: 1.5;
+  }
+  textarea:focus { border-color: var(--blue); }
+  .data-company-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .parse-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: 'Georgia', serif;
+    cursor: pointer;
+  }
+  .parse-btn:hover { opacity: 0.88; }
+  .derivation { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+  .deriv-title { font-size: 13px; color: var(--text); margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .deriv-steps { display: flex; flex-direction: column; gap: 0.85rem; }
+  .deriv-step { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: start; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-body { display: flex; flex-direction: column; gap: 3px; }
+  .step-label { font-size: 12px; color: var(--text-2); }
+  .step-working { font-size: 11px; color: var(--text-3); font-style: italic; }
+  .step-result { font-size: 14px; font-weight: 500; color: var(--blue); white-space: nowrap; padding-top: 1px; }
+  .step-result.pending { color: var(--text-3); font-weight: normal; font-style: italic; font-size: 12px; }
+  .error-msg { font-size: 12px; color: var(--coral); margin-top: 6px; font-style: italic; display: none; }
+  .analyze-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-3);
+    font-style: italic;
+    font-size: 13px;
+  }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    .controls { position: static; }
+    .charts-grid, .data-grid, .data-company-row { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .col-mapper-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page-header">
+  <h1>Supplier Wait Time Simulator</h1>
+  <p>How long do parts spend waiting at a supplier before work even begins — and how many more jobs could they absorb?</p>
+  <div class="how-it-works">
+    <div class="how-pill"><strong>Busier supplier</strong> → longer waits, nonlinearly</div>
+    <div class="how-pill"><strong>More unpredictable arrivals</strong> → longer waits</div>
+    <div class="how-pill"><strong>More variable job times</strong> → longer waits</div>
+    <div class="how-pill"><strong>Smaller supplier</strong> → longer waits at same utilization</div>
+  </div>
+</div>
+
+<!-- MODE TOGGLE: the big separation -->
+<div class="mode-toggle">
+  <button class="mode-btn active" id="mode-explore-btn" onclick="setMode('explore')">
+    Explore<span class="mode-btn-sub">Move sliders, see what happens</span>
+  </button>
+  <button class="mode-btn" id="mode-analyze-btn" onclick="setMode('analyze')">
+    Analyze my data<span class="mode-btn-sub">Upload arrivals and processing times</span>
+  </button>
+</div>
+
+<!-- ═══════════════ EXPLORE MODE ═══════════════ -->
+<div id="mode-explore" class="app">
+  <div class="controls">
+    <div class="ctrl-heading">Supplier size</div>
+    <div class="ctrl-group">
+      <div class="ctrl-label" style="margin-bottom:2px">
+        Processing lines
+        <span class="ctrl-val" id="lines-out">1</span>
+      </div>
+      <div class="lines-labels">
+        <span class="lines-label" style="left:0%">Small</span>
+        <span class="lines-label" style="left:50%">Medium</span>
+        <span class="lines-label" style="left:100%">Large</span>
+      </div>
+      <div class="lines-ticks">
+        <span class="lines-tick" style="left:0%"></span>
+        <span class="lines-tick" style="left:25%"></span>
+        <span class="lines-tick" style="left:50%"></span>
+        <span class="lines-tick" style="left:75%"></span>
+        <span class="lines-tick" style="left:100%"></span>
+      </div>
+      <input type="range" min="1" max="5" step="1" value="1" id="lines" oninput="updateExplore()">
+      <div class="lines-nums"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+      <div class="ctrl-hint">How many jobs can this supplier work on simultaneously?</div>
+    </div>
+    <hr class="ctrl-divider">
+    <div class="ctrl-heading">Variability &amp; workload</div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">
+        How unpredictable are arrivals?
+        <span class="ctrl-val" id="cva-out">moderate</span>
+      </div>
+      <input type="range" min="0.1" max="2.5" step="0.1" value="1.2" id="cva" oninput="updateExplore()">
+      <div class="ctrl-hint">Low = regular schedule. High = unpredictable bursts.</div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">
+        How variable are job times?
+        <span class="ctrl-val" id="cvs-out">moderate</span>
+      </div>
+      <input type="range" min="0.1" max="2.5" step="0.1" value="1.0" id="cvs" oninput="updateExplore()">
+      <div class="ctrl-hint">Low = consistent durations. High = some jobs take much longer.</div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">
+        Average time to process a job
+        <span class="ctrl-val" id="pt-out">5.0 hrs</span>
+      </div>
+      <input type="range" min="1" max="20" step="0.5" value="5" id="pt" oninput="updateExplore()">
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">
+        Arrival rate
+        <span class="ctrl-val" id="arr-out">0.15 jobs/hr</span>
+      </div>
+      <input type="range" min="0.05" max="2.0" step="0.05" value="0.15" id="arr-rate" oninput="updateExplore()">
+      <div class="ctrl-hint">How frequently new jobs arrive at this supplier.</div>
+      <div class="derived-util" id="derived-util">→ 75% utilized</div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">
+        Share of The Company jobs
+        <span class="ctrl-val" id="mix-out">50%</span>
+      </div>
+      <input type="range" min="5" max="95" step="5" value="50" id="mix" oninput="updateExplore()">
+      <div class="mix-pills">
+        <span class="pill pill-company" id="company-lbl">50% The Company</span>
+        <span class="pill pill-other"   id="other-lbl">50% other</span>
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="sample-bar">
+      <span class="sample-label" id="sample-label">Sample #1 — 800 synthetic jobs</span>
+      <button class="sample-btn" onclick="newSample()">⟳ New sample</button>
+    </div>
+    <div class="metrics" id="explore-metrics"></div>
+    <div class="tab-bar">
+      <button class="tab active" onclick="setExploreView('dashboard', this)">Overview</button>
+      <button class="tab"        onclick="setExploreView('sensitivity', this)">What if?</button>
+      <button class="tab"        onclick="setExploreView('histogram', this)">Wait spread</button>
+    </div>
+    <div id="view-dashboard">
+      <div class="charts-grid">
+        <div class="chart-box">
+          <div class="chart-title">Wait time vs. how busy the supplier is</div>
+          <div class="chart-desc">Small increases near full capacity cause massive delays</div>
+          <div class="chart-wrap"><canvas id="c-util"></canvas></div>
+          <div class="chart-legend">
+            <span><span class="leg-dot" style="background:#185fa5"></span>Formula estimate</span>
+            <span><span class="leg-dot" style="background:#0f6e56"></span>Simulated result</span>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Wait time vs. unpredictability</div>
+          <div class="chart-desc">Effect of irregular arrivals vs. variable job times</div>
+          <div class="chart-wrap"><canvas id="c-var"></canvas></div>
+          <div class="chart-legend">
+            <span><span class="leg-dot" style="background:#185fa5"></span>Arrival irregularity</span>
+            <span><span class="leg-dot" style="background:#993c1d"></span>Job time variability</span>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Spare job capacity vs. utilization</div>
+          <div class="chart-desc">Additional jobs per week before reaching 85%</div>
+          <div class="chart-wrap"><canvas id="c-spare"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Jobs piling up over time</div>
+          <div class="chart-desc">How the backlog grows and clears across a simulated period</div>
+          <div class="chart-wrap"><canvas id="c-queue"></canvas></div>
+          <div class="chart-legend">
+            <span><span class="leg-dot" style="background:#185fa5"></span>All jobs</span>
+            <span><span class="leg-dot" style="background:#ba7517"></span>The Company jobs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="view-sensitivity" style="display:none">
+      <div class="charts-grid">
+        <div class="chart-box">
+          <div class="chart-title">Wait time across utilization levels</div>
+          <div class="chart-desc">Each line shows a different level of arrival unpredictability</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="c-sens"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">What if variability could be reduced?</div>
+          <div class="chart-desc">Predicted wait if arrivals or job times became more predictable</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="c-sens-var"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div id="view-histogram" style="display:none">
+      <div class="chart-box">
+        <div class="chart-title">Spread of wait times across all jobs</div>
+        <div class="chart-desc">Most jobs wait briefly, but the long tail causes line stoppages</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="c-hist"></canvas></div>
+        <div class="chart-legend">
+          <span><span class="leg-dot" style="background:#185fa5"></span>All jobs</span>
+          <span><span class="leg-dot" style="background:#ba7517"></span>The Company jobs</span>
+        </div>
+      </div>
+    </div>
+    <div class="insight" id="explore-insight"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ ANALYZE MODE ═══════════════ -->
+<div id="mode-analyze" class="analyze-wrap" style="display:none">
+  <div class="data-intro">
+    Upload a CSV or paste numbers below. Everything on this page — metric cards, derivation, charts — is computed directly from your data. No sliders, no rounding, no synthetic samples.
+  </div>
+  <div class="csv-zone" id="csv-zone"
+       ondragover="event.preventDefault(); this.classList.add('drag-over')"
+       ondragleave="this.classList.remove('drag-over')"
+       ondrop="handleDrop(event)">
+    <input type="file" accept=".csv,text/csv" onchange="handleFileSelect(event)">
+    <div class="csv-icon">📄</div>
+    <div class="csv-zone-title">Drag and drop a CSV file here</div>
+    <div class="csv-zone-sub">or <span class="csv-zone-link">click to browse</span> — .csv files only</div>
+  </div>
+  <div class="csv-success" id="csv-success">
+    Loaded: <span class="csv-filename" id="csv-filename"></span> — <span id="csv-row-count"></span>.
+  </div>
+  <div class="col-mapper" id="col-mapper">
+    <div class="col-mapper-title">Match your columns to the right fields</div>
+    <div class="col-mapper-grid">
+      <div class="col-map-group">
+        <label>Arrival time column</label>
+        <select id="map-arrival"></select>
+        <div class="csv-preview" id="prev-arrival"></div>
+      </div>
+      <div class="col-map-group">
+        <label>Processing time column</label>
+        <select id="map-service"></select>
+        <div class="csv-preview" id="prev-service"></div>
+      </div>
+      <div class="col-map-group">
+        <label>The Company job? (optional)</label>
+        <select id="map-label"></select>
+        <div class="csv-preview" id="prev-label"></div>
+      </div>
+    </div>
+    <button class="load-csv-btn" onclick="loadFromCSV()">Load this data into the fields below →</button>
+  </div>
+  <div class="divider-or">or enter manually</div>
+  <div class="data-grid">
+    <div class="data-box">
+      <div class="data-box-title">When did each job arrive?</div>
+      <div class="data-box-desc">Arrival time of each job in hours from start. One per line.</div>
+      <textarea id="arr-input" placeholder="0.0&#10;1.2&#10;2.5&#10;3.1&#10;5.0&#10;6.8&#10;7.3&#10;9.0&#10;10.4&#10;12.1"></textarea>
+    </div>
+    <div class="data-box">
+      <div class="data-box-title">How long did each job take?</div>
+      <div class="data-box-desc">Active processing time per job in hours (not including wait). One per line.</div>
+      <textarea id="svc-input" placeholder="3.8&#10;4.2&#10;5.1&#10;3.5&#10;4.0&#10;4.8&#10;3.9&#10;4.3&#10;4.1&#10;3.7"></textarea>
+    </div>
+  </div>
+  <div class="data-company-row">
+    <div class="data-box">
+      <div class="data-box-title">Processing lines &amp; Company labels</div>
+      <div class="data-box-desc">Set number of processing lines, then optionally enter 1 (Company) or 0 (other) per job.</div>
+      <div style="margin-bottom:8px">
+        <div class="ctrl-label" style="margin-bottom:2px">
+          Lines
+          <span class="ctrl-val" id="data-lines-out">1</span>
+        </div>
+        <input type="range" min="1" max="5" step="1" value="1" id="data-lines" style="margin-bottom:4px"
+               oninput="document.getElementById('data-lines-out').textContent=this.value">
+      </div>
+      <textarea id="label-input" style="height:80px" placeholder="1&#10;0&#10;1&#10;1&#10;0&#10;0&#10;1&#10;0&#10;1&#10;1"></textarea>
+    </div>
+    <div class="data-box" style="display:flex;flex-direction:column;justify-content:flex-end;">
+      <div class="data-box-desc" style="margin-bottom:8px">Click to analyse your data.</div>
+      <button class="parse-btn" onclick="analyzeData()">Analyse my data</button>
+      <div class="error-msg" id="parse-error"></div>
+    </div>
+  </div>
+
+  <!-- Derivation panel (always visible, populated after parse) -->
+  <div class="derivation">
+    <div class="deriv-title">How your data translates into wait time — step by step</div>
+    <div class="deriv-steps">
+      <div class="deriv-step"><div class="step-num">1</div><div class="step-body"><div class="step-label">Work out the gaps between arrivals</div><div class="step-working" id="d-iat-working">e.g. jobs at hour 0, 1.2, 2.5 → gaps of 1.2 and 1.3 hrs</div></div><div class="step-result pending" id="d-iat">enter data above</div></div>
+      <div class="deriv-step"><div class="step-num">2</div><div class="step-body"><div class="step-label">Measure how irregular those gaps are</div><div class="step-working" id="d-cva-working">irregularity = spread ÷ average</div></div><div class="step-result pending" id="d-cva">enter data above</div></div>
+      <div class="deriv-step"><div class="step-num">3</div><div class="step-body"><div class="step-label">Measure how variable job times are</div><div class="step-working" id="d-cvs-working">variability = spread ÷ average</div></div><div class="step-result pending" id="d-cvs">enter data above</div></div>
+      <div class="deriv-step"><div class="step-num">4</div><div class="step-body"><div class="step-label">Average job processing time</div><div class="step-working" id="d-pt-working">average of all job times</div></div><div class="step-result pending" id="d-pt">enter data above</div></div>
+      <div class="deriv-step"><div class="step-num">5</div><div class="step-body"><div class="step-label">Estimate how busy the supplier is, adjusted for size</div><div class="step-working" id="d-u-working">busyness = avg job time ÷ (avg gap × capacity)</div></div><div class="step-result pending" id="d-u">enter data above</div></div>
+      <div class="deriv-step"><div class="step-num">6</div><div class="step-body"><div class="step-label">The Company's share of the workload</div><div class="step-working" id="d-mix-working">Company jobs ÷ total jobs</div></div><div class="step-result pending" id="d-mix">enter data above</div></div>
+      <div class="deriv-step"><div class="step-num">7</div><div class="step-body"><div class="step-label">Predicted wait time and spare job capacity</div><div class="step-working" id="d-vut-working">Combines busyness, irregularity, variability, and size</div></div><div class="step-result pending" id="d-vut">enter data above</div></div>
+    </div>
+  </div>
+
+  <!-- Metric cards: computed directly from data, no sliders -->
+  <div id="analyze-metrics-wrap" style="display:none">
+    <div class="metrics" id="analyze-metrics"></div>
+  </div>
+
+  <!-- Data-driven charts -->
+  <div id="analyze-charts-wrap" style="display:none">
+    <div class="charts-grid">
+      <div class="chart-box">
+        <div class="chart-title">Formula prediction vs. what your data actually showed</div>
+        <div class="chart-desc">Kingman/VUT is an approximation. Here is how it compares to the FIFO replay.</div>
+        <div class="chart-wrap"><canvas id="c-compare"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Wait per job, in order of arrival</div>
+        <div class="chart-desc">When waits happened. Spikes indicate arrival bursts or long service jobs.</div>
+        <div class="chart-wrap"><canvas id="c-perjob"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Distribution of wait times</div>
+        <div class="chart-desc">How often waits of each length occurred across your 100 jobs.</div>
+        <div class="chart-wrap"><canvas id="c-ahist"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">What if your arrival rate changed?</div>
+        <div class="chart-desc">Formula-predicted wait across utilization, holding your variability fixed.</div>
+        <div class="chart-wrap"><canvas id="c-asens"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="insight" id="analyze-insight" style="display:none"></div>
+
+  <div id="analyze-empty" class="analyze-empty">
+    Upload or paste data above, then click <strong>Analyse my data</strong> to see metrics and charts.
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   SHARED utilities
+   ════════════════════════════════════════════════════════════════ */
+let charts = {};
+let simSeed = Math.floor(Math.random() * 2147483647);
+let sampleNumber = 1;
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0;
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function mean(arr)   { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function stddev(arr) { const m = mean(arr); return Math.sqrt(arr.reduce((s,x)=>s+(x-m)**2,0)/arr.length); }
+function parseLines(text) { return text.trim().split(/\s+|\n|,/).map(s=>parseFloat(s)).filter(n=>!isNaN(n)); }
+
+const TARGET_U = 0.85;
+function getOpsHrs(c) { return 40 + (c-1)*10; }
+function sizeLabel(c) { if (c<=2) return 'Small'; if (c<=3) return 'Medium'; return 'Large'; }
+function capRating(u) {
+  if (u < 0.70) return { label:'Available',   cls:'available' };
+  if (u < 0.85) return { label:'Tightening',  cls:'tightening' };
+  return                { label:'Constrained', cls:'constrained' };
+}
+function spareJobs(u, c, opsHrs, pt) {
+  if (u >= TARGET_U || pt <= 0) return 0;
+  return ((TARGET_U - u) * c * opsHrs) / pt;
+}
+function varLabel(v) {
+  if (v < 0.4) return 'very regular';
+  if (v < 0.8) return 'mostly regular';
+  if (v < 1.2) return 'moderate';
+  if (v < 1.8) return 'fairly erratic';
+  return 'very erratic';
+}
+
+/* VUT / Sakasegawa: approximate G/G/m mean wait in queue */
+function waitTimeFn(ca, cs, pt, u, c) {
+  c = c || 1;
+  if (u >= 1) u = 0.999;
+  const exp = Math.sqrt(2*(c+1)) - 1;
+  return ((ca*ca + cs*cs) / 2) * (pt/c) * (Math.pow(u, exp) / (1 - u));
+}
+
+/* Synthetic simulation (for Explore mode) */
+function exponential(m, rng) { return -m * Math.log(rng() || 1e-10); }
+function erlang(k, m, rng) { let s=0; for (let i=0;i<k;i++) s+=exponential(m/k,rng); return s; }
+function sampleSpread(m, sp, rng) {
+  if (sp <= 0.01) return m;
+  if (sp <= 0.5)  return erlang(Math.max(1, Math.round(1/(sp*sp))), m, rng);
+  return exponential(m, rng);
+}
+function simulate(ca, cs, pt, u, mix, nJobs, c, seed) {
+  c = c || 1;
+  seed = seed || simSeed;
+  const rng = mulberry32(seed);
+  const avgGap = pt / (u * c);
+  let arrivals = [], t = 0;
+  for (let i=0; i<nJobs; i++) {
+    t += sampleSpread(avgGap, ca, rng);
+    arrivals.push({ arrTime: t, isCo: rng() < mix/100 });
+  }
+  let free = new Array(c).fill(0);
+  let waits = [], coWaits = [], qot = [];
+  for (let i=0; i<arrivals.length; i++) {
+    const j = arrivals[i];
+    let mf = free[0], mi = 0;
+    for (let s=1; s<c; s++) if (free[s] < mf) { mf=free[s]; mi=s; }
+    const start = Math.max(j.arrTime, mf);
+    const w = start - j.arrTime;
+    free[mi] = start + sampleSpread(pt, cs, rng);
+    waits.push(w);
+    if (j.isCo) coWaits.push(w);
+    if (i % Math.max(1, Math.floor(nJobs/50)) === 0) {
+      const gm = Math.min(...free);
+      qot.push({
+        t: j.arrTime,
+        q:  arrivals.slice(i).filter(x => x.arrTime < gm).length,
+        cq: arrivals.slice(i).filter(x => x.arrTime < gm && x.isCo).length
+      });
+    }
+  }
+  return {
+    avgWait: mean(waits),
+    companyAvgWait: mean(coWaits),
+    waitTimes: waits,
+    companyWaits: coWaits,
+    queueOverTime: qot
+  };
+}
+
+/* Lindley replay of real data (for Analyze mode) */
+function simulateFromRealData(arrTimes, svcTimes, jobLabels, companyPct, c) {
+  c = c || 1;
+  const rng = mulberry32(simSeed);
+  let free = new Array(c).fill(0);
+  let waits = [], coWaits = [], qot = [], arrMarks = [];
+  const n = arrTimes.length;
+  for (let i=0; i<n; i++) {
+    const a = arrTimes[i], sv = svcTimes[i % svcTimes.length];
+    const isCo = jobLabels.length > 0 ? !!jobLabels[i] : rng() < companyPct/100;
+    let mf = free[0], mi = 0;
+    for (let s=1; s<c; s++) if (free[s] < mf) { mf=free[s]; mi=s; }
+    const start = Math.max(a, mf), w = start - a;
+    free[mi] = start + sv;
+    waits.push(w);
+    arrMarks.push({ t: a, isCo });
+    if (isCo) coWaits.push(w);
+    if (i % Math.max(1, Math.floor(n/50)) === 0) {
+      const gm = Math.min(...free);
+      qot.push({
+        t: a,
+        q:  arrTimes.slice(i).filter((t, idx) => t < gm).length,
+        cq: 0
+      });
+    }
+  }
+  return {
+    avgWait: mean(waits),
+    companyAvgWait: mean(coWaits),
+    waitTimes: waits,
+    companyWaits: coWaits,
+    queueOverTime: qot,
+    arrMarks
+  };
+}
+
+/* Chart setup helpers */
+function makeOrUpdate(id, config) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, config);
+}
+const gCol = 'rgba(128,128,128,0.10)';
+const aCo  = '#9e9d97';
+const tF   = { size: 11, family: 'Georgia, serif' };
+const bO = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { mode:'index', intersect:false, bodyFont:{family:'Georgia, serif', size:12} } },
+  scales: {
+    x: { grid:{color:gCol}, ticks:{color:aCo, font:tF} },
+    y: { grid:{color:gCol}, ticks:{color:aCo, font:tF} }
+  }
+};
+const legendOpts = { display:true, position:'top', labels:{color:aCo, font:tF, boxWidth:12, usePointStyle:true, padding:14} };
+
+/* ════════════════════════════════════════════════════════════════
+   MODE SWITCHING — top-level separation
+   ════════════════════════════════════════════════════════════════ */
+let currentMode = 'explore';
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('mode-explore').style.display = m === 'explore' ? '' : 'none';
+  document.getElementById('mode-analyze').style.display = m === 'analyze' ? '' : 'none';
+  document.getElementById('mode-explore-btn').classList.toggle('active', m === 'explore');
+  document.getElementById('mode-analyze-btn').classList.toggle('active', m === 'analyze');
+  if (m === 'explore') {
+    updateExplore();
+  } else if (analyzeState) {
+    renderAnalyze();
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EXPLORE MODE — sliders drive everything. No data here.
+   ════════════════════════════════════════════════════════════════ */
+let currentExploreView = 'dashboard';
+let cachedExploreSim = null;
+
+function setExploreView(v, btn) {
+  currentExploreView = v;
+  ['dashboard','sensitivity','histogram'].forEach(id => {
+    document.getElementById('view-' + id).style.display = id === v ? '' : 'none';
+  });
+  document.querySelectorAll('#mode-explore .tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  updateExplore();
+}
+
+function newSample() {
+  simSeed = Math.floor(Math.random() * 2147483647);
+  sampleNumber++;
+  cachedExploreSim = null;
+  updateExplore();
+}
+
+function updateExplore() {
+  cachedExploreSim = null;
+  const ca = parseFloat(document.getElementById('cva').value);
+  const cs = parseFloat(document.getElementById('cvs').value);
+  const pt = parseFloat(document.getElementById('pt').value);
+  const arrRate = parseFloat(document.getElementById('arr-rate').value);
+  const mix = parseInt(document.getElementById('mix').value);
+  const c = parseInt(document.getElementById('lines').value) || 1;
+  const opsHrs = getOpsHrs(c);
+  const u = Math.min(0.99, (arrRate * pt) / c);
+
+  document.getElementById('cva-out').textContent = varLabel(ca);
+  document.getElementById('cvs-out').textContent = varLabel(cs);
+  document.getElementById('pt-out').textContent = pt.toFixed(1) + ' hrs';
+  document.getElementById('arr-out').textContent = arrRate.toFixed(2) + ' jobs/hr';
+  document.getElementById('mix-out').textContent = mix + '%';
+  document.getElementById('company-lbl').textContent = mix + '% The Company';
+  document.getElementById('other-lbl').textContent = (100 - mix) + '% other';
+  document.getElementById('lines-out').textContent = c;
+
+  const uPct = Math.round(u * 100);
+  const utilEl = document.getElementById('derived-util');
+  const uClass = u >= 0.85 ? 'coral' : u >= 0.70 ? 'amber' : 'green';
+  const uWarn = u >= 0.85 ? ' · Danger zone' : u >= 0.70 ? ' · Approaching capacity' : '';
+  utilEl.textContent = `→ ${uPct}% utilized${uWarn}`;
+  utilEl.className = 'derived-util ' + uClass;
+
+  const fw = waitTimeFn(ca, cs, pt, u, c);
+  const sj = spareJobs(u, c, opsHrs, pt);
+  const rt = capRating(u);
+  const sim = simulate(ca, cs, pt, u, mix, 800, c);
+  cachedExploreSim = sim;
+
+  const spareSub = sj > 0 ? `≈${Math.round(sj)} jobs before 85%` : 'at or above 85% — no headroom';
+  document.getElementById('sample-label').textContent = `Sample #${sampleNumber} — 800 synthetic jobs`;
+
+  document.getElementById('explore-metrics').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Formula estimate</div>
+      <div class="metric-val">${fw.toFixed(1)}h</div>
+      <div class="metric-sub">predicted wait · ${sizeLabel(c)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Simulated wait</div>
+      <div class="metric-val">${sim.avgWait.toFixed(1)}h</div>
+      <div class="metric-sub">all job types</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">The Company wait</div>
+      <div class="metric-val">${sim.companyAvgWait.toFixed(1)}h</div>
+      <div class="metric-sub">${mix}% of arrivals</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Spare capacity</div>
+      <div class="metric-val"><span class="cap-badge ${rt.cls}">${rt.label}</span></div>
+      <div class="metric-sub">${spareSub}</div>
+    </div>
+  `;
+
+  const bMsg = u >= 0.9 ? 'This supplier is critically overloaded — even a small increase in orders will spiral.'
+    : u >= 0.75 ? 'Above 75% utilization, wait times grow rapidly.'
+    : 'This supplier has breathing room — unpredictability matters more than busyness here.';
+  const sMsg = c === 1 ? 'Modeled as a single-line shop.'
+    : `${sizeLabel(c)} supplier with ${c} lines — jobs absorb into whichever line frees up first.`;
+  const spMsg = sj > 0 ? `Could absorb roughly ${Math.round(sj)} more jobs per week before reaching 85%.`
+    : 'No spare job capacity at current utilization.';
+  document.getElementById('explore-insight').textContent = `${bMsg} ${sMsg} ${spMsg}`;
+
+  renderExploreCharts(ca, cs, pt, u, mix, c, opsHrs, sim);
+}
+
+function renderExploreCharts(ca, cs, pt, u, mix, c, opsHrs, sim) {
+  if (currentExploreView === 'dashboard') {
+    const bL = [10,20,30,40,50,60,70,80,85,90,92,95,97,99];
+    makeOrUpdate('c-util', {
+      type:'line',
+      data:{
+        labels: bL.map(l => l+'%'),
+        datasets:[
+          { label:'Formula', data: bL.map(b => +waitTimeFn(ca,cs,pt,b/100,c).toFixed(2)),
+            borderColor:'#185fa5', backgroundColor:'transparent', pointRadius:2, tension:0.35, borderWidth:2 },
+          { label:'Simulated', data: bL.map(b => +simulate(ca,cs,pt,b/100,mix,400,c,simSeed+b).avgWait.toFixed(2)),
+            borderColor:'#0f6e56', backgroundColor:'transparent', pointRadius:2, tension:0.35, borderWidth:2, borderDash:[5,3] }
+        ]
+      },
+      options: {...bO}
+    });
+    const vR = [0.1,0.3,0.5,0.7,1.0,1.2,1.5,1.8,2.0,2.5];
+    makeOrUpdate('c-var', {
+      type:'line',
+      data:{
+        labels: vR.map(v => varLabel(v)),
+        datasets:[
+          { label:'Arrival irregularity', data: vR.map(v => +waitTimeFn(v,cs,pt,u,c).toFixed(2)),
+            borderColor:'#185fa5', backgroundColor:'transparent', pointRadius:2, tension:0.35, borderWidth:2 },
+          { label:'Job time variability', data: vR.map(v => +waitTimeFn(ca,v,pt,u,c).toFixed(2)),
+            borderColor:'#993c1d', backgroundColor:'transparent', pointRadius:2, tension:0.35, borderWidth:2, borderDash:[5,3] }
+        ]
+      },
+      options: {...bO, scales:{ x:{...bO.scales.x, ticks:{...bO.scales.x.ticks, maxRotation:35}}, y: bO.scales.y }}
+    });
+    const spareData = bL.map(b => +spareJobs(b/100,c,opsHrs,pt).toFixed(1));
+    const bgColors = bL.map(b => b/100 >= TARGET_U ? 'rgba(153,60,29,0.35)' : b/100 >= 0.70 ? 'rgba(186,117,23,0.35)' : 'rgba(15,110,86,0.35)');
+    const borderColors = bL.map(b => b/100 >= TARGET_U ? '#993c1d' : b/100 >= 0.70 ? '#ba7517' : '#0f6e56');
+    makeOrUpdate('c-spare', {
+      type:'bar',
+      data:{ labels: bL.map(l=>l+'%'), datasets:[{ label:'Spare jobs', data: spareData, backgroundColor: bgColors, borderColor: borderColors, borderWidth:1 }] },
+      options: {...bO, scales:{ x:{...bO.scales.x, title:{display:true, text:'Utilization', color:aCo, font:tF}}, y:{...bO.scales.y, title:{display:true, text:'Spare jobs', color:aCo, font:tF}} }}
+    });
+    const qt = sim.queueOverTime;
+    makeOrUpdate('c-queue', {
+      type:'line',
+      data:{
+        labels: qt.map((d,i) => i%5===0 ? Math.round(d.t)+'h' : ''),
+        datasets:[
+          { label:'All', data: qt.map(d=>d.q), borderColor:'#185fa5', backgroundColor:'rgba(24,95,165,0.07)', fill:true, pointRadius:0, tension:0.3, borderWidth:1.5 },
+          { label:'Company', data: qt.map(d=>d.cq), borderColor:'#ba7517', backgroundColor:'transparent', pointRadius:0, tension:0.3, borderWidth:1.5, borderDash:[4,3] }
+        ]
+      },
+      options: {...bO}
+    });
+  } else if (currentExploreView === 'sensitivity') {
+    const bL = [10,20,30,40,50,60,70,75,80,85,90,92,95];
+    const iLevels = [0.5,1.0,1.5,2.0,2.5];
+    const iColors = ['#b5d4f4','#378add','#185fa5','#d85a30','#993c1d'];
+    makeOrUpdate('c-sens', {
+      type:'line',
+      data:{
+        labels: bL.map(l=>l+'%'),
+        datasets: iLevels.map((v,i) => ({
+          label: varLabel(v), data: bL.map(b => +waitTimeFn(v,cs,pt,b/100,c).toFixed(2)),
+          borderColor: iColors[i], backgroundColor:'transparent', pointRadius:2, tension:0.35, borderWidth:2
+        }))
+      },
+      options: {...bO, plugins:{ legend: legendOpts, tooltip: bO.plugins.tooltip }}
+    });
+    const scenarios = [
+      { label:'Current settings', ca, cs, color:'#185fa5', dash:[] },
+      { label:'Arrivals smoothed (Ca halved)', ca: ca/2, cs, color:'#0f6e56', dash:[5,3] },
+      { label:'Job times standardized (Cs halved)', ca, cs: cs/2, color:'#ba7517', dash:[5,3] },
+      { label:'Both halved', ca: ca/2, cs: cs/2, color:'#993c1d', dash:[3,2] }
+    ];
+    makeOrUpdate('c-sens-var', {
+      type:'line',
+      data:{
+        labels: bL.map(l=>l+'%'),
+        datasets: scenarios.map(s => ({
+          label: s.label,
+          data: bL.map(b => +waitTimeFn(s.ca, s.cs, pt, b/100, c).toFixed(2)),
+          borderColor: s.color, backgroundColor:'transparent',
+          pointRadius:2, tension:0.35, borderWidth:2, borderDash: s.dash
+        }))
+      },
+      options: {...bO, plugins:{ legend:{...legendOpts, labels:{...legendOpts.labels, boxWidth:20}}, tooltip: bO.plugins.tooltip }}
+    });
+  } else if (currentExploreView === 'histogram') {
+    const aW = sim.waitTimes, cW = sim.companyWaits;
+    const mW = Math.max(...aW, 1) * 1.02;
+    const bins = 20, bSz = mW/bins;
+    const aCt = Array(bins).fill(0), cCt = Array(bins).fill(0);
+    aW.forEach(w => aCt[Math.min(Math.floor(w/bSz), bins-1)]++);
+    cW.forEach(w => cCt[Math.min(Math.floor(w/bSz), bins-1)]++);
+    makeOrUpdate('c-hist', {
+      type:'bar',
+      data:{
+        labels: aCt.map((_,i) => (i*bSz).toFixed(1)),
+        datasets:[
+          { label:'All', data: aCt, backgroundColor:'rgba(24,95,165,0.45)', borderColor:'#185fa5', borderWidth:1 },
+          { label:'Company', data: cCt, backgroundColor:'rgba(186,117,23,0.45)', borderColor:'#ba7517', borderWidth:1 }
+        ]
+      },
+      options: {...bO, scales:{ x:{...bO.scales.x, title:{display:true, text:'Hours waiting', color:aCo, font:tF}}, y:{...bO.scales.y, title:{display:true, text:'Number of jobs', color:aCo, font:tF}} }}
+    });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ANALYZE MODE — data drives everything. No sliders.
+   ════════════════════════════════════════════════════════════════ */
+let analyzeState = null; // { cva, cvs, pt, u, lines, companyPct, realArrTimes, realSvcTimes, jobLabels, sim }
+
+function showErr(msg) {
+  const el = document.getElementById('parse-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function setResult(id, text) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.classList.remove('pending');
+}
+
+function analyzeData() {
+  const errEl = document.getElementById('parse-error');
+  errEl.style.display = 'none';
+
+  const arrTimesRaw = parseLines(document.getElementById('arr-input').value);
+  const svcTimesRaw = parseLines(document.getElementById('svc-input').value);
+  const labelRaw    = document.getElementById('label-input').value.trim();
+  const c = parseInt(document.getElementById('data-lines').value) || 1;
+
+  if (arrTimesRaw.length < 2) { showErr('Please enter at least 2 arrival times.'); return; }
+  if (svcTimesRaw.length < 1) { showErr('Please enter at least 1 processing time.'); return; }
+  const cleanSvc = svcTimesRaw.filter(v => v > 0);
+  if (!cleanSvc.length) { showErr('No valid processing times found.'); return; }
+
+  // Keep arrival-service pairing intact by sorting together
+  const pairs = arrTimesRaw.map((a, i) => ({ a, s: svcTimesRaw[i] || cleanSvc[0] }))
+                           .sort((x, y) => x.a - y.a);
+  const arrTimes = pairs.map(p => p.a);
+  const svcTimes = pairs.map(p => p.s > 0 ? p.s : cleanSvc[0]);
+
+  // Interarrival statistics
+  const gaps = [];
+  for (let i=1; i<arrTimes.length; i++) {
+    const d = arrTimes[i] - arrTimes[i-1];
+    if (d > 0) gaps.push(d);
+  }
+  if (!gaps.length) { showErr('Could not find valid gaps.'); return; }
+
+  const avgGap = mean(gaps), sGap = stddev(gaps), cva = avgGap ? sGap/avgGap : 0;
+  const avgJob = mean(cleanSvc), sJob = stddev(cleanSvc), cvs = avgJob ? sJob/avgJob : 0;
+  const u = Math.min(0.99, avgJob / (avgGap * c));
+  const pt = avgJob;
+
+  let companyPct, jobLabels = [];
+  if (!labelRaw) {
+    companyPct = 100; // if no labels and in analyze mode, treat as 100% company
+  } else {
+    const lb = parseLines(labelRaw);
+    jobLabels = lb.map(l => l === 1);
+    companyPct = Math.round(lb.filter(l => l === 1).length / lb.length * 100);
+  }
+
+  // FORMULA: exact VUT on exact values (no slider round-trip)
+  const fw = waitTimeFn(cva, cvs, pt, u, c);
+  const sj = spareJobs(u, c, getOpsHrs(c), pt);
+  const rt = capRating(u);
+
+  // REAL replay
+  const sim = simulateFromRealData(arrTimes, svcTimes, jobLabels, companyPct, c);
+
+  // Populate derivation panel
+  const f2 = n => n.toFixed(2);
+  document.getElementById('d-iat-working').textContent = `${gaps.length} gaps · avg: ${f2(avgGap)} hrs`;
+  setResult('d-iat', `avg gap: ${f2(avgGap)} hrs`);
+  document.getElementById('d-cva-working').textContent = `Spread (${f2(sGap)}) ÷ avg (${f2(avgGap)}) = ${f2(cva)}`;
+  setResult('d-cva', `${varLabel(cva)} (${f2(cva)})`);
+  document.getElementById('d-cvs-working').textContent = `Spread (${f2(sJob)}) ÷ avg (${f2(avgJob)}) = ${f2(cvs)}`;
+  setResult('d-cvs', `${varLabel(cvs)} (${f2(cvs)})`);
+  document.getElementById('d-pt-working').textContent = `Average of ${cleanSvc.length} jobs`;
+  setResult('d-pt', `${f2(avgJob)} hrs per job`);
+  document.getElementById('d-u-working').textContent = c > 1
+    ? `${f2(avgJob)} ÷ (${f2(avgGap)} × ${c} lines) = ${(u*100).toFixed(1)}%`
+    : `${f2(avgJob)} ÷ ${f2(avgGap)} = ${(u*100).toFixed(1)}%`;
+  setResult('d-u', `${(u*100).toFixed(1)}% utilized (${sizeLabel(c)})`);
+  document.getElementById('d-mix-working').textContent = !labelRaw
+    ? 'No labels given — treating as 100% The Company'
+    : `${parseLines(labelRaw).filter(l=>l===1).length} of ${parseLines(labelRaw).length}`;
+  setResult('d-mix', `${companyPct}% The Company`);
+  const spText = sj > 0
+    ? `${f2(fw)} hrs wait · ${rt.label} · ≈${Math.round(sj)} spare jobs`
+    : `${f2(fw)} hrs wait · ${rt.label} · no spare capacity`;
+  document.getElementById('d-vut-working').textContent = `${sizeLabel(c)} supplier · ${c} line${c>1?'s':''} · ${(u*100).toFixed(0)}% utilized`;
+  setResult('d-vut', spText);
+
+  // Store and render
+  analyzeState = { cva, cvs, pt, u, lines: c, companyPct, realArrTimes: arrTimes, realSvcTimes: svcTimes, jobLabels, sim, fw, sj, rt };
+  renderAnalyze();
+}
+
+function renderAnalyze() {
+  if (!analyzeState) return;
+  const { cva, cvs, pt, u, lines, companyPct, sim, fw, sj, rt, realArrTimes } = analyzeState;
+
+  // Show the downstream sections
+  document.getElementById('analyze-empty').style.display = 'none';
+  document.getElementById('analyze-metrics-wrap').style.display = '';
+  document.getElementById('analyze-charts-wrap').style.display = '';
+  document.getElementById('analyze-insight').style.display = '';
+
+  // Metric cards — all four directly from data
+  const spareSub = sj > 0 ? `≈${Math.round(sj)} more jobs before 85%` : 'no headroom at this load';
+  document.getElementById('analyze-metrics').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Observed utilization</div>
+      <div class="metric-val">${(u*100).toFixed(1)}%</div>
+      <div class="metric-sub">${sizeLabel(lines)} · ${lines} line${lines>1?'s':''}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Formula prediction (VUT)</div>
+      <div class="metric-val">${fw.toFixed(2)}h</div>
+      <div class="metric-sub">steady-state estimate</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Observed mean wait</div>
+      <div class="metric-val">${sim.avgWait.toFixed(2)}h</div>
+      <div class="metric-sub">from your ${realArrTimes.length} jobs</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Spare capacity</div>
+      <div class="metric-val"><span class="cap-badge ${rt.cls}">${rt.label}</span></div>
+      <div class="metric-sub">${spareSub}</div>
+    </div>
+  `;
+
+  // Insight line
+  const gap = fw - sim.avgWait;
+  const gapMsg = Math.abs(gap) < 0.5
+    ? 'Formula and observation agree closely — steady-state VUT is a good fit here.'
+    : gap > 0
+      ? `The formula predicts ${f(gap)}h more wait than you actually observed. That usually means your sample hasn't hit steady state yet, or your arrivals are more regular than an average sample would be.`
+      : `You observed ${f(-gap)}h more wait than the formula predicts. That can happen when a few unusually tight clusters cause bursts the formula averages away.`;
+  const varMsg = `Arrivals: ${varLabel(cva)} (Ca=${cva.toFixed(2)}). Service: ${varLabel(cvs)} (Cs=${cvs.toFixed(2)}).`;
+  document.getElementById('analyze-insight').textContent = `${gapMsg} ${varMsg}`;
+
+  function f(n) { return n.toFixed(2); }
+
+  // CHARTS
+  // 1. Formula prediction vs observed mean (simple bar)
+  makeOrUpdate('c-compare', {
+    type: 'bar',
+    data: {
+      labels: ['Formula (VUT)', 'Observed (replay)'],
+      datasets: [{
+        label: 'Mean wait in queue (hrs)',
+        data: [+fw.toFixed(3), +sim.avgWait.toFixed(3)],
+        backgroundColor: ['rgba(24,95,165,0.45)', 'rgba(15,110,86,0.45)'],
+        borderColor: ['#185fa5', '#0f6e56'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      ...bO,
+      scales: {
+        x: { ...bO.scales.x },
+        y: { ...bO.scales.y, title: { display:true, text:'hrs', color:aCo, font:tF } }
+      }
+    }
+  });
+
+  // 2. Wait per job in order of arrival (line)
+  makeOrUpdate('c-perjob', {
+    type: 'line',
+    data: {
+      labels: sim.waitTimes.map((_, i) => (i+1).toString()),
+      datasets: [{
+        label: 'Wait (hrs)',
+        data: sim.waitTimes.map(w => +w.toFixed(3)),
+        borderColor: '#185fa5',
+        backgroundColor: 'rgba(24,95,165,0.08)',
+        fill: true,
+        pointRadius: 0,
+        borderWidth: 1.5,
+        tension: 0.15
+      }]
+    },
+    options: {
+      ...bO,
+      scales: {
+        x: { ...bO.scales.x, title: { display:true, text:'Job # (in order of arrival)', color:aCo, font:tF }, ticks: {...bO.scales.x.ticks, maxTicksLimit: 10 } },
+        y: { ...bO.scales.y, title: { display:true, text:'Wait (hrs)', color:aCo, font:tF } }
+      }
+    }
+  });
+
+  // 3. Histogram of wait times
+  const aW = sim.waitTimes;
+  const mW = Math.max(Math.max(...aW, 0.1), 1) * 1.02;
+  const bins = Math.min(20, Math.max(5, Math.ceil(Math.sqrt(aW.length))));
+  const bSz = mW / bins;
+  const aCt = Array(bins).fill(0);
+  aW.forEach(w => aCt[Math.min(Math.floor(w/bSz), bins-1)]++);
+  makeOrUpdate('c-ahist', {
+    type: 'bar',
+    data: {
+      labels: aCt.map((_, i) => (i*bSz).toFixed(2)),
+      datasets: [{
+        label: 'Jobs',
+        data: aCt,
+        backgroundColor: 'rgba(24,95,165,0.45)',
+        borderColor: '#185fa5',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      ...bO,
+      scales: {
+        x: { ...bO.scales.x, title: { display:true, text:'Wait bucket (hrs)', color:aCo, font:tF } },
+        y: { ...bO.scales.y, title: { display:true, text:'Number of jobs', color:aCo, font:tF } }
+      }
+    }
+  });
+
+  // 4. Sensitivity: predicted wait across utilization, holding your variability fixed
+  const bL = [10,20,30,40,50,60,70,75,80,85,90,92,95,97,99];
+  makeOrUpdate('c-asens', {
+    type: 'line',
+    data: {
+      labels: bL.map(l => l+'%'),
+      datasets: [
+        {
+          label: 'With your Ca and Cs',
+          data: bL.map(b => +waitTimeFn(cva, cvs, pt, b/100, lines).toFixed(2)),
+          borderColor: '#185fa5', backgroundColor:'transparent', pointRadius: 2, tension: 0.35, borderWidth: 2
+        },
+        {
+          label: 'If arrivals became Poisson',
+          data: bL.map(b => +waitTimeFn(1.0, cvs, pt, b/100, lines).toFixed(2)),
+          borderColor: '#993c1d', backgroundColor:'transparent', pointRadius: 2, tension: 0.35, borderWidth: 2, borderDash:[5,3]
+        }
+      ]
+    },
+    options: {
+      ...bO,
+      plugins: { legend: legendOpts, tooltip: bO.plugins.tooltip },
+      scales: {
+        x: { ...bO.scales.x, title: { display:true, text:'Utilization', color:aCo, font:tF } },
+        y: { ...bO.scales.y, title: { display:true, text:'Predicted wait (hrs)', color:aCo, font:tF } }
+      }
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CSV UPLOAD (Analyze mode only)
+   ════════════════════════════════════════════════════════════════ */
+let csvRows = [], csvHeaders = [];
+function handleDrop(e) { e.preventDefault(); document.getElementById('csv-zone').classList.remove('drag-over'); if (e.dataTransfer.files[0]) readCSV(e.dataTransfer.files[0]); }
+function handleFileSelect(e) { if (e.target.files[0]) readCSV(e.target.files[0]); }
+function readCSV(file) { const r = new FileReader(); r.onload = e => processCSV(e.target.result, file.name); r.readAsText(file); }
+function processCSV(text, filename) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) { alert('Need header + data.'); return; }
+  const delim = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+  csvHeaders = lines[0].split(delim).map(h => h.trim().replace(/^"|"$/g, ''));
+  csvRows = lines.slice(1).map(l => l.split(delim).map(c => c.trim().replace(/^"|"$/g, ''))).filter(r => r.some(c => c));
+  document.getElementById('csv-filename').textContent = filename;
+  document.getElementById('csv-row-count').textContent = csvRows.length + ' rows';
+  document.getElementById('csv-success').classList.add('visible');
+  const auto = {
+    'map-arrival': ['arrival','time','timestamp'],
+    'map-service': ['service','process','duration','job_time','hours'],
+    'map-label':   ['label','company','customer','flag']
+  };
+  ['map-arrival','map-service','map-label'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = id === 'map-label' ? '<option value="">— not in file —</option>' : '';
+    csvHeaders.forEach((h,i) => { const o = document.createElement('option'); o.value = i; o.textContent = h; sel.appendChild(o); });
+    const m = auto[id].find(k => csvHeaders.some(h => h.toLowerCase().includes(k)));
+    if (m) { const idx = csvHeaders.findIndex(h => h.toLowerCase().includes(m)); if (idx >= 0) sel.value = idx; }
+    sel.onchange = updatePreviews;
+  });
+  document.getElementById('col-mapper').classList.add('visible');
+  updatePreviews();
+}
+function updatePreviews() {
+  const show = (pid, idx) => {
+    const el = document.getElementById(pid);
+    if (!idx && idx !== 0 && idx !== '0') { el.textContent = ''; return; }
+    el.textContent = 'First: ' + csvRows.slice(0,3).map(r => r[idx] || '—').join(', ');
+  };
+  show('prev-arrival', document.getElementById('map-arrival').value);
+  show('prev-service', document.getElementById('map-service').value);
+  show('prev-label',   document.getElementById('map-label').value);
+}
+function loadFromCSV() {
+  const a = document.getElementById('map-arrival').value;
+  const s = document.getElementById('map-service').value;
+  const l = document.getElementById('map-label').value;
+  if (a === '') { alert('Choose arrival column.'); return; }
+  if (s === '') { alert('Choose processing column.'); return; }
+  document.getElementById('arr-input').value = csvRows.map(r => r[a]).filter(v => v).join('\n');
+  document.getElementById('svc-input').value = csvRows.map(r => r[s]).filter(v => v).join('\n');
+  document.getElementById('label-input').value = l !== '' ? csvRows.map(r => r[l]).filter(v => v).join('\n') : '';
+  document.getElementById('arr-input').scrollIntoView({ behavior:'smooth', block:'center' });
+  ['arr-input','svc-input','label-input'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.borderColor = 'var(--green)';
+    setTimeout(() => el.style.borderColor = '', 2000);
+  });
+}
+
+/* Init */
+updateExplore();
+</script>
+</body>
+</html>
