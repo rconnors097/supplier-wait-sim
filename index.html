@@ -733,24 +733,14 @@
   <div id="analyze-charts-wrap" style="display:none">
     <div class="charts-grid">
       <div class="chart-box">
-        <div class="chart-title">Formula prediction vs. what your data actually showed</div>
-        <div class="chart-desc">Kingman/VUT is an approximation. Here is how it compares to the FIFO replay.</div>
-        <div class="chart-wrap"><canvas id="c-compare"></canvas></div>
-      </div>
+        <div class="chart-title">Distribution of wait times</div>
+        <div class="chart-desc">How often waits of each length occurred across your 100 jobs.</div>
+        <div class="chart-wrap"><canvas id="c-ahist"></canvas></div>
+      </div>      
       <div class="chart-box">
         <div class="chart-title">Wait per job, in order of arrival</div>
         <div class="chart-desc">When waits happened. Spikes indicate arrival bursts or long service jobs.</div>
         <div class="chart-wrap"><canvas id="c-perjob"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">Distribution of wait times</div>
-        <div class="chart-desc">How often waits of each length occurred across your 100 jobs.</div>
-        <div class="chart-wrap"><canvas id="c-ahist"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">What if your arrival rate changed?</div>
-        <div class="chart-desc">Formula-predicted wait across utilization, holding your variability fixed.</div>
-        <div class="chart-wrap"><canvas id="c-asens"></canvas></div>
       </div>
     </div>
   </div>
