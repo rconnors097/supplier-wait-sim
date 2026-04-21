@@ -443,7 +443,7 @@
     <div class="ctrl-heading">Supplier size</div>
     <div class="ctrl-group">
       <div class="ctrl-label" style="margin-bottom:2px">
-        Processing lines
+        How many jobs can this supplier work on simultaneously?
         <span class="ctrl-val" id="lines-out">1</span>
       </div>
       <div class="lines-labels">
@@ -458,9 +458,7 @@
         <span class="lines-tick" style="left:75%"></span>
         <span class="lines-tick" style="left:100%"></span>
       </div>
-      <input type="range" min="1" max="5" step="1" value="1" id="lines" oninput="updateExplore()">
-      <div class="lines-nums"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
-      <div class="ctrl-hint">How many jobs can this supplier work on simultaneously?</div>
+      <input type="range" min="1" max="25" step="5" value="1" id="lines" oninput="updateExplore()">
     </div>
     <hr class="ctrl-divider">
     <div class="ctrl-heading">Variability &amp; workload</div>
@@ -637,8 +635,8 @@
   </div>
   <div class="data-company-row">
     <div class="data-box">
-      <div class="data-box-title">Processing lines &amp; Company labels</div>
-      <div class="data-box-desc">Set number of processing lines, then optionally enter 1 (Company) or 0 (other) per job.</div>
+      <div class="data-box-title">Simultaneous Jobs &amp; Company labels</div>
+      <div class="data-box-desc">Set number of simultaneous jobs, then optionally enter 1 (Company) or 0 (other) per job.</div>
       <div style="margin-bottom:8px">
         <div class="ctrl-label" style="margin-bottom:2px">
           Lines
